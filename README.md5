@@ -1,0 +1,16 @@
+
+This hrTimer test bench is ispired from "rt-tests" tool set how to make (soft) real time
+thread system into Linux application. Hearth of timing scheduler thread function quite
+similar as in "cyclictest" application.
+
+- sudo apt install rt-tests
+- sudo cyclictest -l100000 -m -S -p90 -i1000 -h1000 -q > output.txt
+
+There are mo odd things
+
+- cyclictest gives average latency is < 60 us (with original Raspi (1) and BeagleBone AI)
+- hrTimer gives average latency < 150 us
+- cyclic test worst case latency is < 1 ms
+- hrTimer test worst case latency is randomly even 10 ... 15 ms (not often but still some)
+
+ 
