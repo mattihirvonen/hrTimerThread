@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <sched.h>
 
+//---------------------------------------------------------------------------
 
 // call this function to start a nanosecond-resolution timer
 struct timespec timer_start(){
@@ -31,6 +32,7 @@ long timer_end(struct timespec start_time){
     return diffInNanos;
 }
 
+//---------------------------------------------------------------------------
 
 struct timespec diff( struct timespec start, struct timespec end )
 {
@@ -157,45 +159,7 @@ void print_metrics( void )
     printf("turns        = %f\n", turns );
 }
 
-
-void * threadFuncX( void *arg )
-{
-    printf("max=%d  min=%d\n", sched_get_priority_max(SCHED_FIFO), sched_get_priority_min(SCHED_FIFO) );
-
-    struct sched_param   param;
-
-    param.sched_priority = PRIORITY + 1;
-    pthread_setschedparam( pthread_self(), POLICY, &param );
-
-    struct timespec  currentTime, timestamp, delay, remain;
-    int              latency_us;
-
-    clock_gettime( CLOCK_MONOTONIC, &timestamp );
-    delay.tv_sec  = 0;
-    delay.tv_nsec = 0;
-    delay = addus( delay, PERIOD_us );
-    latency_us = 0;
-
-    for ( int counter = 0; counter < TESTtime(100); counter++)
-    {
-	// Note this simple example do not handle "remain"
-	// if delay end before elapsed time (like signal etc.. case).
-	if ( latency_us < PERIOD_us ) {
-	    delay.tv_nsec = 1000 * ( PERIOD_us - latency_us );
-	    nanosleep( &delay, &remain );
-	}
-	timestamp = addus( timestamp, PERIOD_us );
-
-	clock_gettime( CLOCK_MONOTONIC, &currentTime );
-	latency_us = diffus( timestamp,  currentTime ) - PERIOD_us;
-
-	update_metrics( latency_us );
-    }
-    print_metrics();
-
-    return NULL;
-}
-
+//---------------------------------------------------------------------------
 
 void * threadFunc( void *arg )
 {
