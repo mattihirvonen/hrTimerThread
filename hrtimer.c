@@ -93,8 +93,8 @@ Processes with numerically higher priority values are scheduled
 #define HISTOSIZE      1000
 #define TESTtime(sec)  (((sec) * 1000000) / PERIOD_us)
 
-int PERIOD_us   = 1000;
-int TRESHOLD_us = 1000;    // HISTOSIZE ?
+int PERIOD_us   = 2000;
+int TRESHOLD_us = 2000;    // HISTOSIZE ?
 int PRIORITY    = 90;
 int POLICY      = SCHED_OTHER;   // policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
@@ -164,13 +164,20 @@ void print_metrics( void )
 
 //---------------------------------------------------------------------------
 
+void periodic_application_code( void )
+{
+}
+
+
 void * threadFunc( void *arg )
 {
+    #define  OFFSET_ns   100000
+
 //  printf("max=%d  min=%d\n", sched_get_priority_max(SCHED_FIFO), sched_get_priority_min(SCHED_FIFO) );
 
     struct sched_param   param;
 
-    param.sched_priority = PRIORITY + 1;
+    param.sched_priority = PRIORITY;
     pthread_setschedparam( pthread_self(), POLICY, &param );
 
     struct timespec  now, next, remain;
@@ -179,7 +186,7 @@ void * threadFunc( void *arg )
     int              flags = TIMER_ABSTIME;    // 0=relative or TIMER_ABSTIME, TIMER_REALTIME
 
     clock_gettime( CLOCK_MONOTONIC, &now );
-    now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * PERIOD_us)) + 100000;
+    now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * PERIOD_us)) + OFFSET_ns;
 
     metrics.start = now;
 
@@ -196,6 +203,7 @@ void * threadFunc( void *arg )
 	clock_gettime( CLOCK_MONOTONIC, &now );
 	latency_us = diffus( next, now );
 
+	periodic_application_code();
 	update_metrics( latency_us );
     }
     metrics.stop = now;

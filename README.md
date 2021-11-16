@@ -1,6 +1,6 @@
 
 This hrTimer test bench is ispired from "rt-tests" tool set how to make (soft) real time
-thread system into Linux application. Hearth of timing scheduler thread function quite
+thread system into Linux application. Hearth of timing scheduler thread function is quite
 similar as in "cyclictest" application.
 
 - sudo apt install rt-tests
