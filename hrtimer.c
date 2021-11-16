@@ -15,6 +15,9 @@
 #include <pthread.h>
 #include <sched.h>
 
+void init_kernel_tricks( void );
+void restore_kernel_tricks( void );
+
 //---------------------------------------------------------------------------
 
 // call this function to start a nanosecond-resolution timer
@@ -172,15 +175,20 @@ void * threadFunc( void *arg )
 
     struct timespec  now, next, remain;
     int              latency_us;
-    int              flags = TIMER_ABSTIME;    // 0=relative or TIMER_ABSTIME
+    int              shutdown;
+    int              flags = TIMER_ABSTIME;    // 0=relative or TIMER_ABSTIME, TIMER_REALTIME
 
     clock_gettime( CLOCK_MONOTONIC, &now );
     now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * PERIOD_us)) + 100000;
-    next = addus( now, PERIOD_us );
 
     metrics.start = now;
+
+    next = now;
+//  for ( shutdown = 0; !shutdown; )
     for ( int counter = 0; counter < TESTtime(100); counter++)
     {
+	next = addus( next, PERIOD_us );
+
 	// Note this simple example do not handle "remain"
 	// if delay end before elapsed time (like signal etc.. case).
 	int err = clock_nanosleep( CLOCK_MONOTONIC, flags, &next, &remain );
@@ -189,8 +197,6 @@ void * threadFunc( void *arg )
 	latency_us = diffus( next, now );
 
 	update_metrics( latency_us );
-
-	next = addus( next, PERIOD_us );
     }
     metrics.stop = now;
 
@@ -207,7 +213,9 @@ int main( void )
 
 //  setpriority( which, pid, newPriority );
 
-    pthread_t threadId;
+    init_kernel_tricks();
+
+    pthread_t  threadId;
     int        err;
 
     err = pthread_create( &threadId, NULL, &threadFunc, NULL );
@@ -221,5 +229,8 @@ int main( void )
 	return -1;
     }
     print_metrics();
+
+    restore_kernel_tricks();
+
     return 0;
 }
