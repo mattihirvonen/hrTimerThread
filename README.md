@@ -6,14 +6,14 @@ similar as in "cyclictest" application.
 - sudo apt install rt-tests
 - sudo cyclictest -l100000 -m -S -p90 -i1000 -h1000 -q > output.txt
 
-There are some odd things
+NOTE(S):
+- application must run with root privileges.
+- application write data to named shared memory /dev/shm/RT_METRICS
+- writing non zero value to first shared memory integer reset metrics
 
-- cyclictest    average latency is < 60 us (with original RasPI (model 1) and BeagleBone AI)
-- hrTimer  measure average latency < 150 us
-- cyclictest worst case latency is < 1 ms
-- hrTimer    worst case latency is randomly even 10 ... 15 ms (not often but still some)
-- hrTimer worst case measurements are a bit better when run CODESYS runtime or cyclictest
-  applications same time parallel with hrTimer application
+Results:
+- BeagleBone AI average latency < 20  us (worst case typically < 50 us), dual core 1.5GHz
+- Raspberry  PI average latency < 150 us (worst case typically < 1 ms), single core 700 MHz
 
 https://kernel.googlesource.com/pub/scm/linux/kernel/git/clrkwllms/rt-tests/+/refs/heads/master/src/cyclictest/cyclictest.c
 
