@@ -90,8 +90,8 @@ void * threadFunc( void *arg )
     metrics_data->start = now;
 
     next = now;
-//  while ( !shutdown )
-    for ( int counter = 0; !shutdown && (counter < TESTtime(100)); counter++ )
+    while ( !shutdown )
+//  for ( int counter = 0; !shutdown && (counter < TESTtime(100)); counter++ )
     {
         next = addus( next, RT_PERIOD );
 

@@ -16,7 +16,7 @@ extern "C" {
 #define HISTOSIZE  2001
 
 typedef struct  {
-	int  reset;
+	int  reset;     // Write non zero value resets metrics
 	//
     int  histogram[HISTOSIZE];
     int  long_sum_us;
