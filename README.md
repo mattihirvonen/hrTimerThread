@@ -10,6 +10,8 @@ NOTE(S):
 - application must run with root privileges.
 - application write data to named shared memory /dev/shm/RT_METRICS
 - writing non zero value to first shared memory integer reset metrics
+- application accept one input argument which is test time in seconds
+- without command line argument application run for ever
 
 Results:
 - BeagleBone AI average latency < 20 us (worst case typically < 50 us), dual core 1.5GHz

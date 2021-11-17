@@ -12,6 +12,7 @@
 //
 //      /usr/lib/rtkit/rtkit-daemon
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>                // struct timespec
@@ -63,6 +64,7 @@ typedef struct
 
 thread_args_t  thread_args;
 int            shutdown;     // Write here non zero value to terminate RT thread
+uint32_t       runtime;
 
 
 void periodic_application_code( void )
@@ -91,7 +93,6 @@ void * threadFunc( void *arg )
 
     next = now;
     while ( !shutdown )
-//  for ( int counter = 0; !shutdown && (counter < TESTtime(100)); counter++ )
     {
         next = addus( next, RT_PERIOD );
 
@@ -104,12 +105,17 @@ void * threadFunc( void *arg )
 
         periodic_application_code();
         update_metrics( metrics_data, latency_us, now );
+		
+		if ( runtime ) {
+		    if ( --runtime )   continue;
+			else               break;
+		}
     }
     return NULL;
 }
 
 
-int main( void )
+int main( int argc, char *argv[] )
 {
     pid_t  pid             = getpid();
     int    currentPriority = getpriority( PRIO_PROCESS, pid );
@@ -118,12 +124,20 @@ int main( void )
 //  setpriority( PRIO_PROCESS, pid, newPriority );
 
     check_root();
-    lock_memory();
+	if ( argc > 1 ) {
+		int sec = atoi( argv[1] );
+		if ( sec ) {
+			runtime = TESTtime( sec );
+		}
+	}
     metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
     if ( !metrics_data ) {
         printf("ERROR: Can not open shared memory\n");
         exit( -1 );
     }
+    lock_memory();
+
+	// - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     struct sched_param  parm;
     pthread_attr_t      attr;
