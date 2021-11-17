@@ -12,8 +12,8 @@ NOTE(S):
 - writing non zero value to first shared memory integer reset metrics
 
 Results:
-- BeagleBone AI average latency < 20  us (worst case typically < 50 us), dual core 1.5GHz
-- Raspberry  PI average latency < 150 us (worst case typically < 1 ms), single core 700 MHz
+- BeagleBone AI average latency < 20 us (worst case typically < 50 us), dual core 1.5GHz
+- Raspberry  PI average latency < 60 us (worst case typically < 1 ms), single core 700 MHz
 
 https://kernel.googlesource.com/pub/scm/linux/kernel/git/clrkwllms/rt-tests/+/refs/heads/master/src/cyclictest/cyclictest.c
 
