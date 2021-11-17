@@ -1,10 +1,14 @@
 
-SRC= hrtimer.c suppfunc.c
-
+SRC= suppfunc.c
 HDR= suppfunc.h
 
-all: hrtimer
+all:  hrtimer  hrprint
 
-hrtimer:  $(HDR) $(SRC)  Makefile
-	gcc -O2  $(SRC)  -o hrtimer  -lrt  -lpthread
+
+hrtimer:  $(HDR) $(SRC)  hrtimer.c  Makefile
+	gcc -O2  $(SRC)  hrtimer.c  -o hrtimer  -lrt  -lpthread
+	
+
+hrprint:  $(HDR) $(SRC)  hrprint.c  Makefile
+	gcc -O2  $(SRC)  hrprint.c  -o hrprint  -lrt  -lpthread
 

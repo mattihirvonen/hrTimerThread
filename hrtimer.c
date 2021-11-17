@@ -105,11 +105,11 @@ void * threadFunc( void *arg )
 
         periodic_application_code();
         update_metrics( metrics_data, latency_us, now );
-		
-		if ( runtime ) {
-		    if ( --runtime )   continue;
-			else               break;
-		}
+
+        if ( runtime ) {
+            if ( --runtime )   continue;
+            else               break;
+        }
     }
     return NULL;
 }
@@ -124,12 +124,12 @@ int main( int argc, char *argv[] )
 //  setpriority( PRIO_PROCESS, pid, newPriority );
 
     check_root();
-	if ( argc > 1 ) {
-		int sec = atoi( argv[1] );
-		if ( sec ) {
-			runtime = TESTtime( sec );
-		}
-	}
+    if ( argc > 1 ) {
+        int sec = atoi( argv[1] );
+        if ( sec ) {
+            runtime = TESTtime( sec );
+        }
+    }
     metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
     if ( !metrics_data ) {
         printf("ERROR: Can not open shared memory\n");
@@ -137,7 +137,7 @@ int main( int argc, char *argv[] )
     }
     lock_memory();
 
-	// - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    // - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     struct sched_param  parm;
     pthread_attr_t      attr;
