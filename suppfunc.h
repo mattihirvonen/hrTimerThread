@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 
-#define HISTOSIZE  1001
+#define HISTOSIZE  2001
 
 typedef struct  {
 	int  reset;
@@ -35,6 +35,9 @@ struct timespec  diff(  struct timespec start, struct timespec end );
 struct timespec  addus( struct timespec timestamp, int us );
 
 int diffus( struct timespec start, struct timespec end );
+
+void update_metrics( metrics_t *metrics, int latency_us );
+void print_metrics(  metrics_t *metrics );
 
 
 #ifdef __cplusplus

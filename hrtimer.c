@@ -53,68 +53,7 @@ void restore_kernel_tricks( void );
 
 #define TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
-int  TRESHOLD_us = 2000;
-
 metrics_t   metrics_data;
-metrics_t  *metrics = &metrics_data;
-
-
-void update_metrics( int latency_us )
-{
-    static int flagPERIOD = 0;
-    static int flagPRINT  = 0;
-
-    metrics->counter++;
-    metrics->sum_us += latency_us;
-
-    if ( (latency_us < HISTOSIZE)  &&  (latency_us > 0) ) {
-         metrics->histogram[latency_us]++;
-    }
-    else {
-         metrics->histogram[0]++;
-    }
-    if ( latency_us < RT_PERIOD ) {
-         flagPERIOD = 0;
-    }
-    if ( latency_us >= RT_PERIOD && !flagPERIOD ) {
-         flagPERIOD = 1;
-         metrics->long_count++;
-         metrics->long_sum_us += latency_us - RT_PERIOD;
-    }
-    if ( latency_us < TRESHOLD_us ) {
-         flagPRINT  = 0;
-    }
-    if ( latency_us >= TRESHOLD_us && !flagPRINT ) {
-         #define SPACE 0x20
-         flagPRINT = 1;
-//       printf("%d/%d\n", metrics->counter, latency_us );
-         printf("%8d /%2d.%03d %c\n", metrics->counter, latency_us / 1000, latency_us % 1000,
-                (latency_us > RT_PERIOD) ? '*' : SPACE );
-    }
-    if (  metrics->max_lat < latency_us ) {
-          metrics->max_lat = latency_us;
-    }
-}
-
-
-void print_metrics( void )
-{
-    int us       = diffus( metrics->start, metrics->stop );
-    float turns  = us;
-          turns /= RT_PERIOD;
-
-    printf("# Histogram: [us] [count]\n");
-    for ( int ix = 0; ix < HISTOSIZE; ix++ ) {
-        printf("%06d %06d\n", ix, metrics->histogram[ix] );
-    }
-    printf("#\n");
-    printf("# max  latency = %d\n", metrics->max_lat );
-    printf("# awg  latency = %d\n", metrics->sum_us / metrics->counter );
-    printf("# long count   = %d\n", metrics->long_count );
-    printf("# long [ms]    = %d.%03d\n", metrics->long_sum_us / 1000, metrics->long_sum_us % 1000 );
-    //
-    printf("# turns        = %f\n", turns );
-}
 
 //---------------------------------------------------------------------------
 
@@ -148,7 +87,7 @@ void * threadFunc( void *arg )
     clock_gettime( CLOCK_MONOTONIC, &now );
     now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * RT_PERIOD)) + OFFSET_ns;
 
-    metrics->start = now;
+    metrics_data.start = now;
 
     next = now;
 //  while ( !shutdown )
@@ -164,9 +103,9 @@ void * threadFunc( void *arg )
         latency_us = diffus( next, now );
 
         periodic_application_code();
-        update_metrics( latency_us );
+        update_metrics( &metrics_data, latency_us );
     }
-    metrics->stop = now;
+    metrics_data.stop = now;
 
     return NULL;
 }
@@ -204,7 +143,7 @@ int main( void )
          printf("ERROR to join thread\n");
          return -1;
     }
-    print_metrics();
+    print_metrics( &metrics_data );
 
     return 0;
 }
