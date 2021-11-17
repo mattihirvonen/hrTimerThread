@@ -1,11 +1,16 @@
 //  gcc hrtimer.c -O2 -o hrtimer -lrt -lpthread
 //
-// #include <iostream>
-// #include <time.h>
-// using namespace std;
-//
 // https://stackoverflow.com/questions/6749621/how-to-create-a-high-resolution-timer-in-linux-to-measure-program-performance
+// https://hugh712.gitbooks.io/embeddedsystem/content/real-time_application_development.html
 //
+// An existing program can be started in a specific scheduling class with
+// a specific priority using the chrt command line tool
+//
+// Example:  chrt -f 80 ./hrtimer -f: SCHED_FIFO -r: SCHED_RR
+//
+// Linux/Posix real time operations based on:
+//
+//      /usr/lib/rtkit/rtkit-daemon
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -14,6 +19,10 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
+
+int RT_PRIORITY   = 90;
+int RT_PERIOD     = 1000;         // Unit:   [us]
+int RT_POLICY     = SCHED_FIFO;   // Policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
 void init_kernel_tricks( void );
 void restore_kernel_tricks( void );
@@ -91,12 +100,10 @@ Processes with numerically higher priority values are scheduled
 */
 
 #define HISTOSIZE      1000
-#define TESTtime(sec)  (((sec) * 1000000) / PERIOD_us)
+#define TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
-int PERIOD_us   = 2000;
-int TRESHOLD_us = 2000;    // HISTOSIZE ?
-int PRIORITY    = 90;
-int POLICY      = SCHED_OTHER;   // policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
+int TRESHOLD_us = 2000;          // HISTOSIZE ?
+
 
 struct metrics_t {
     int  histogram[HISTOSIZE];
@@ -124,13 +131,13 @@ void update_metrics( int latency_us )
     else {
 	metrics.histogram[0]++;
     }
-    if (  latency_us < PERIOD_us ) {
+    if (  latency_us < RT_PERIOD ) {
 	flagPERIOD = 0;
     }
-    if (  latency_us >= PERIOD_us && !flagPERIOD ) {
+    if (  latency_us >= RT_PERIOD && !flagPERIOD ) {
 	flagPERIOD = 1;
 	metrics.long_count++;
-	metrics.long_sum_us += latency_us - PERIOD_us;
+	metrics.long_sum_us += latency_us - RT_PERIOD;
     }
     if (  latency_us < TRESHOLD_us ) {
 	flagPRINT  = 0;
@@ -140,7 +147,7 @@ void update_metrics( int latency_us )
 	flagPRINT = 1;
 //	printf("%d/%d\n", metrics.counter, latency_us );
 	printf("%8d /%2d.%03d %c\n", metrics.counter, latency_us / 1000, latency_us % 1000,
-                  (latency_us > PERIOD_us) ? '*' : SPACE );
+                  (latency_us > RT_PERIOD) ? '*' : SPACE );
     }
     if (  metrics.max_lat < latency_us ) {
 	metrics.max_lat = latency_us;
@@ -152,7 +159,7 @@ void print_metrics( void )
 {
     int us       = diffus( metrics.start, metrics.stop );
     float turns  = us;
-          turns /= PERIOD_us;
+          turns /= RT_PERIOD;
     
     printf("max  latency = %d\n", metrics.max_lat );
     printf("awg  latency = %d\n", metrics.sum_us / metrics.counter );
@@ -164,6 +171,14 @@ void print_metrics( void )
 
 //---------------------------------------------------------------------------
 
+typedef struct
+{
+    int dummy_sample;
+} thread_args_t;
+
+thread_args_t  thread_args;
+
+
 void periodic_application_code( void )
 {
 }
@@ -171,14 +186,14 @@ void periodic_application_code( void )
 
 void * threadFunc( void *arg )
 {
-    #define  OFFSET_ns   100000
+    #define  OFFSET_ns   0  //  100000
 
 //  printf("max=%d  min=%d\n", sched_get_priority_max(SCHED_FIFO), sched_get_priority_min(SCHED_FIFO) );
 
     struct sched_param   param;
 
-    param.sched_priority = PRIORITY;
-    pthread_setschedparam( pthread_self(), POLICY, &param );
+//  param.sched_priority = RT_PRIORITY;
+//  pthread_setschedparam( pthread_self(), RT_POLICY, &param );
 
     struct timespec  now, next, remain;
     int              latency_us;
@@ -186,7 +201,7 @@ void * threadFunc( void *arg )
     int              flags = TIMER_ABSTIME;    // 0=relative or TIMER_ABSTIME, TIMER_REALTIME
 
     clock_gettime( CLOCK_MONOTONIC, &now );
-    now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * PERIOD_us)) + OFFSET_ns;
+    now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * RT_PERIOD)) + OFFSET_ns;
 
     metrics.start = now;
 
@@ -194,7 +209,7 @@ void * threadFunc( void *arg )
 //  for ( shutdown = 0; !shutdown; )
     for ( int counter = 0; counter < TESTtime(100); counter++)
     {
-	next = addus( next, PERIOD_us );
+	next = addus( next, RT_PERIOD );
 
 	// Note this simple example do not handle "remain"
 	// if delay end before elapsed time (like signal etc.. case).
@@ -214,19 +229,27 @@ void * threadFunc( void *arg )
 
 int main( void )
 {
-    int    which           = PRIO_PROCESS;
     pid_t  pid             = getpid();
-    int    currentPriority = getpriority( which, pid );
-    int    newPriority     = PRIORITY;
+    int    currentPriority = getpriority( PRIO_PROCESS, pid );
+//  int    newPriority     = PRIORITY;
 
-//  setpriority( which, pid, newPriority );
+//  setpriority( PRIO_PROCESS, pid, newPriority );
 
-    init_kernel_tricks();
+//  init_kernel_tricks();
+
+    struct sched_param parm;
+	pthread_attr_t attr;
+	
+	pthread_attr_init( &attr );
+	pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
+	pthread_attr_setschedpolicy( &attr, RT_POLICY );
+	parm.sched_priority = RT_PRIORITY;
+	pthread_attr_setschedparam( &attr, &parm );
 
     pthread_t  threadId;
     int        err;
 
-    err = pthread_create( &threadId, NULL, &threadFunc, NULL );
+    err = pthread_create( &threadId, &attr, &threadFunc, &thread_args );
     if ( err ) {
 	printf("ERROR to create thread\n");
 	return -1;
@@ -238,7 +261,7 @@ int main( void )
     }
     print_metrics();
 
-    restore_kernel_tricks();
+//  restore_kernel_tricks();
 
     return 0;
 }
