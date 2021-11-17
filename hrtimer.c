@@ -16,20 +16,22 @@
 #include <stdio.h>
 #include <time.h>                // struct timespec
 #include <sys/resource.h>        // getpriority(), setpriority()
+#include <sys/mman.h>            // munmap()
 #include <unistd.h>              // getpid()
 #include <pthread.h>
 #include "suppfunc.h"
 
+#define  SHM_METRICS    "RT_METRICS"      // Shared memory file name
+
+#define  TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
+
+metrics_t  *metrics_data;
 
 int RT_PRIORITY   = 90;
 int RT_PERIOD     = 1000;         // Unit:   [us]
 int RT_POLICY     = SCHED_FIFO;   // Policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
-void init_kernel_tricks( void );
-void restore_kernel_tricks( void );
-
 //---------------------------------------------------------------------------
-
 //
 // https://events.static.linuxfound.org/sites/events/files/slides/cyclictest.pdf
 // https://man7.org/linux/man-pages/man3/pthread_setschedparam.3.html
@@ -51,10 +53,6 @@ void restore_kernel_tricks( void );
     are not alterable.
 */
 
-#define TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
-
-metrics_t   metrics_data;
-
 //---------------------------------------------------------------------------
 
 typedef struct
@@ -62,12 +60,14 @@ typedef struct
     int dummy_sample;
 } thread_args_t;
 
+
 thread_args_t  thread_args;
 int            shutdown;     // Write here non zero value to terminate RT thread
 
 
 void periodic_application_code( void )
 {
+    // ToDo:....
 }
 
 
@@ -87,7 +87,7 @@ void * threadFunc( void *arg )
     clock_gettime( CLOCK_MONOTONIC, &now );
     now.tv_nsec = now.tv_nsec - (now.tv_nsec % (1000 * RT_PERIOD)) + OFFSET_ns;
 
-    metrics_data.start = now;
+    metrics_data->start = now;
 
     next = now;
 //  while ( !shutdown )
@@ -103,10 +103,8 @@ void * threadFunc( void *arg )
         latency_us = diffus( next, now );
 
         periodic_application_code();
-        update_metrics( &metrics_data, latency_us );
+        update_metrics( metrics_data, latency_us, now );
     }
-    metrics_data.stop = now;
-
     return NULL;
 }
 
@@ -120,10 +118,15 @@ int main( void )
 //  setpriority( PRIO_PROCESS, pid, newPriority );
 
     lock_memory();
+    metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
+    if ( !metrics_data ) {
+        printf("ERROR: Can not open shared memory\n");
+        exit( -1 );
+    }
 
     struct sched_param  parm;
     pthread_attr_t      attr;
-    
+
     pthread_attr_init( &attr );
     pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
     pthread_attr_setschedpolicy(  &attr, RT_POLICY );
@@ -143,7 +146,15 @@ int main( void )
          printf("ERROR to join thread\n");
          return -1;
     }
-    print_metrics( &metrics_data );
+    print_metrics( metrics_data );
+
+    munmap( metrics_data, sizeof(metrics_t) );
+
+    #if 0 //FALSE
+    // We leave shared memory files open for other processes!
+    // Close hared memory file(s): /dev/shm/....
+//  shm_unlink(SHM_METRICS);
+    #endif
 
     return 0;
 }

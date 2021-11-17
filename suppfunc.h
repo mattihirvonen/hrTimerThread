@@ -28,7 +28,7 @@ typedef struct  {
     struct timespec start, stop;
 } metrics_t;
 
-
+void check_root( void );
 void lock_memory( void );
 
 struct timespec  diff(  struct timespec start, struct timespec end );
@@ -36,8 +36,10 @@ struct timespec  addus( struct timespec timestamp, int us );
 
 int diffus( struct timespec start, struct timespec end );
 
-void update_metrics( metrics_t *metrics, int latency_us );
+void update_metrics( metrics_t *metrics, int latency_us, struct timespec now );
 void print_metrics(  metrics_t *metrics );
+
+void *shmOpen( char *txt, char *shmName, size_t shmSize );
 
 
 #ifdef __cplusplus

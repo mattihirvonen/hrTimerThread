@@ -9,8 +9,13 @@
 #include <stdio.h>          // perror()
 #include <error.h>          // errno
 #include <time.h>           // struct timespec
-#include <sys/mman.h>       // mlockall(), munlockall
+#include <sys/mman.h>       // mlockall(), munlockall, mmap(), munmap()
 #include <string.h>         // memset()
+#include <unistd.h>         // getuid()   
+
+//#include <sys/types.h>
+//#include <sys/stat.h>
+#include <fcntl.h>          // O_CREAT,...
 
 #include "suppfunc.h"
 
@@ -18,6 +23,17 @@ extern int  RT_PERIOD;                  // RT_PERIOD units [us]
 static int  TRESHOLD = (HISTOSIZE-1);   // TRESHOLD  units [us]
 
 //---------------------------------------------------------------------------
+
+void check_root( void )
+{
+    uid_t  uid = getuid();
+
+    if ( uid ) {
+        printf("\nApplication must run with \"root\" privileges\n\n");
+        exit( 1 );
+    }
+}
+
 
 void lock_memory( void )
 {
@@ -80,7 +96,7 @@ int diffus( struct timespec start, struct timespec end )
 
 //---------------------------------------------------------------------------
 
-void update_metrics( metrics_t *metrics, int latency_us )
+void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
 {
     static int flagPERIOD = 0;
     static int flagPRINT  = 0;
@@ -89,7 +105,11 @@ void update_metrics( metrics_t *metrics, int latency_us )
 		 memset( metrics, 0, sizeof(metrics_t) );
 		 flagPERIOD = 0;
 		 flagPRINT  = 0;
-		 return;
+		 
+		 // Following makes "turns calculation result bit less... xx.9???
+		 struct timespec  timestamp;
+		 clock_gettime( CLOCK_MONOTONIC, &timestamp );
+		 metrics->start = timestamp;
 	}
 
     metrics->counter++;
@@ -122,6 +142,7 @@ void update_metrics( metrics_t *metrics, int latency_us )
     if (  metrics->max_lat < latency_us ) {
           metrics->max_lat = latency_us;
     }
+	metrics->stop = now;
 }
 
 
@@ -145,3 +166,25 @@ void print_metrics( metrics_t *metrics )
 }
 
 //---------------------------------------------------------------------------
+
+void *shmOpen( char *txt, char *shmName, size_t shmSize )
+{
+    int  fd = shm_open(shmName, O_CREAT | O_RDWR, S_IRWXU | S_IRWXG);
+    if ( fd <= 0 ) {
+        printf("ERROR: Open shared memory: %s\n", shmName);
+        exit( 1 );
+    }
+    printf("Shared Memory %s (fd=%d) %s\n", txt, fd, shmName);
+    if ( ftruncate(fd,shmSize) != 0 ) {
+        printf("- ERROR: ftruncate size=%d\n", shmSize);
+        exit( 1 );
+    }
+    void *pMem = mmap(0, shmSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if ( !pMem ) {
+        printf("- ERROR: mmap size=%d\n", shmSize);
+        exit( 1 );
+    }
+    close(fd);
+    return pMem;
+}
+
