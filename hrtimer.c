@@ -19,6 +19,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/mman.h>     // mlockall(), munlockall
+
 
 int RT_PRIORITY   = 90;
 int RT_PERIOD     = 1000;         // Unit:   [us]
@@ -75,6 +77,17 @@ struct timespec addus( struct timespec timestamp, int us )
          timestamp.tv_sec++;
     }
     return timestamp;
+}
+
+
+void lock_memory( void )
+{
+
+	/* lock all memory (prevent swapping) */
+	if (mlockall(MCL_CURRENT|MCL_FUTURE) == -1) {
+		perror("mlockall");
+		exit( -1 );
+	}
 }
 
 //---------------------------------------------------------------------------
@@ -182,6 +195,7 @@ typedef struct
 } thread_args_t;
 
 thread_args_t  thread_args;
+int            shutdown;     // Write here non zero value to terminate RT thread
 
 
 void periodic_application_code( void )
@@ -193,8 +207,6 @@ void * threadFunc( void *arg )
 {
     #define  OFFSET_ns   0  //  100000
 
-//  printf("max=%d  min=%d\n", sched_get_priority_max(SCHED_FIFO), sched_get_priority_min(SCHED_FIFO) );
-
     struct sched_param   param;
 
 //  param.sched_priority = RT_PRIORITY;
@@ -202,7 +214,6 @@ void * threadFunc( void *arg )
 
     struct timespec  now, next, remain;
     int              latency_us;
-    int              shutdown;
     int              flags = TIMER_ABSTIME;    // 0=relative or TIMER_ABSTIME, TIMER_REALTIME
 
     clock_gettime( CLOCK_MONOTONIC, &now );
@@ -211,8 +222,8 @@ void * threadFunc( void *arg )
     metrics.start = now;
 
     next = now;
-//  for ( shutdown = 0; !shutdown; )
-    for ( int counter = 0; counter < TESTtime(100); counter++)
+//  while ( !shutdown )
+    for ( int counter = 0; !shutdown && (counter < TESTtime(100)); counter++ )
     {
         next = addus( next, RT_PERIOD );
 
@@ -240,14 +251,14 @@ int main( void )
 
 //  setpriority( PRIO_PROCESS, pid, newPriority );
 
-//  init_kernel_tricks();
+    lock_memory();
 
-    struct sched_param parm;
-    pthread_attr_t attr;
+    struct sched_param  parm;
+    pthread_attr_t      attr;
     
     pthread_attr_init( &attr );
     pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
-    pthread_attr_setschedpolicy( &attr, RT_POLICY );
+    pthread_attr_setschedpolicy(  &attr, RT_POLICY );
     parm.sched_priority = RT_PRIORITY;
     pthread_attr_setschedparam( &attr, &parm );
 
@@ -265,8 +276,6 @@ int main( void )
          return -1;
     }
     print_metrics();
-
-//  restore_kernel_tricks();
 
     return 0;
 }
