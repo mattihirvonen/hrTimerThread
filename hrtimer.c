@@ -71,8 +71,8 @@ struct timespec addus( struct timespec timestamp, int us )
 {
     timestamp.tv_nsec += 1000 * us;
     if ( timestamp.tv_nsec >= 1000000000 ) {
-	 timestamp.tv_nsec -= 1000000000;
-	 timestamp.tv_sec++;
+         timestamp.tv_nsec -= 1000000000;
+         timestamp.tv_sec++;
     }
     return timestamp;
 }
@@ -88,18 +88,18 @@ struct timespec addus( struct timespec timestamp, int us )
 // NOTE: Raise only stepper driver thread's priority!
 //
 /*
-Processes with numerically higher priority values are scheduled
-       before processes with numerically lower priority values.  Thus,
-       the value returned by sched_get_priority_max() will be greater
-       than the value returned by sched_get_priority_min().
+    Processes with numerically higher priority values are scheduled
+    before processes with numerically lower priority values.  Thus,
+    the value returned by sched_get_priority_max() will be greater
+    than the value returned by sched_get_priority_min().
 
-       Linux allows the static priority range 1 to 99 for the SCHED_FIFO
-       and SCHED_RR policies, and the priority 0 for the remaining
-       policies.  Scheduling priority ranges for the various policies
-       are not alterable.
+    Linux allows the static priority range 1 to 99 for the SCHED_FIFO
+    and SCHED_RR policies, and the priority 0 for the remaining
+    policies.  Scheduling priority ranges for the various policies
+    are not alterable.
 */
 
-#define HISTOSIZE      1000
+#define HISTOSIZE      1001
 #define TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
 int TRESHOLD_us = 2000;          // HISTOSIZE ?
@@ -126,31 +126,31 @@ void update_metrics( int latency_us )
     metrics.sum_us += latency_us;
 
     if ( (latency_us < HISTOSIZE)  &&  (latency_us > 0) ) {
-	metrics.histogram[latency_us]++;
+         metrics.histogram[latency_us]++;
     }
     else {
-	metrics.histogram[0]++;
+         metrics.histogram[0]++;
     }
-    if (  latency_us < RT_PERIOD ) {
-	flagPERIOD = 0;
+    if ( latency_us < RT_PERIOD ) {
+         flagPERIOD = 0;
     }
-    if (  latency_us >= RT_PERIOD && !flagPERIOD ) {
-	flagPERIOD = 1;
-	metrics.long_count++;
-	metrics.long_sum_us += latency_us - RT_PERIOD;
+    if ( latency_us >= RT_PERIOD && !flagPERIOD ) {
+         flagPERIOD = 1;
+         metrics.long_count++;
+         metrics.long_sum_us += latency_us - RT_PERIOD;
     }
-    if (  latency_us < TRESHOLD_us ) {
-	flagPRINT  = 0;
+    if ( latency_us < TRESHOLD_us ) {
+         flagPRINT  = 0;
     }
-    if (  latency_us >= TRESHOLD_us && !flagPRINT ) {
-          #define SPACE 0x20
-	flagPRINT = 1;
-//	printf("%d/%d\n", metrics.counter, latency_us );
-	printf("%8d /%2d.%03d %c\n", metrics.counter, latency_us / 1000, latency_us % 1000,
-                  (latency_us > RT_PERIOD) ? '*' : SPACE );
+    if ( latency_us >= TRESHOLD_us && !flagPRINT ) {
+         #define SPACE 0x20
+         flagPRINT = 1;
+//       printf("%d/%d\n", metrics.counter, latency_us );
+         printf("%8d /%2d.%03d %c\n", metrics.counter, latency_us / 1000, latency_us % 1000,
+                (latency_us > RT_PERIOD) ? '*' : SPACE );
     }
     if (  metrics.max_lat < latency_us ) {
-	metrics.max_lat = latency_us;
+          metrics.max_lat = latency_us;
     }
 }
 
@@ -160,13 +160,18 @@ void print_metrics( void )
     int us       = diffus( metrics.start, metrics.stop );
     float turns  = us;
           turns /= RT_PERIOD;
-    
-    printf("max  latency = %d\n", metrics.max_lat );
-    printf("awg  latency = %d\n", metrics.sum_us / metrics.counter );
-    printf("long count   = %d\n", metrics.long_count );
-    printf("long [ms]    = %d.%03d\n", metrics.long_sum_us / 1000, metrics.long_sum_us % 1000 );
+
+    printf("# Histogram: [us] [count]\n");
+    for ( int ix = 0; ix < HISTOSIZE; ix++ ) {
+        printf("%06d %06d\n", ix, metrics.histogram[ix] );
+    }
+    printf("#\n");
+    printf("# max  latency = %d\n", metrics.max_lat );
+    printf("# awg  latency = %d\n", metrics.sum_us / metrics.counter );
+    printf("# long count   = %d\n", metrics.long_count );
+    printf("# long [ms]    = %d.%03d\n", metrics.long_sum_us / 1000, metrics.long_sum_us % 1000 );
     //
-    printf("turns        = %f\n", turns );
+    printf("# turns        = %f\n", turns );
 }
 
 //---------------------------------------------------------------------------
@@ -209,17 +214,17 @@ void * threadFunc( void *arg )
 //  for ( shutdown = 0; !shutdown; )
     for ( int counter = 0; counter < TESTtime(100); counter++)
     {
-	next = addus( next, RT_PERIOD );
+        next = addus( next, RT_PERIOD );
 
-	// Note this simple example do not handle "remain"
-	// if delay end before elapsed time (like signal etc.. case).
-	int err = clock_nanosleep( CLOCK_MONOTONIC, flags, &next, &remain );
+        // Note this simple example do not handle "remain"
+        // if delay end before elapsed time (like signal etc.. case).
+        int err = clock_nanosleep( CLOCK_MONOTONIC, flags, &next, &remain );
 
-	clock_gettime( CLOCK_MONOTONIC, &now );
-	latency_us = diffus( next, now );
+        clock_gettime( CLOCK_MONOTONIC, &now );
+        latency_us = diffus( next, now );
 
-	periodic_application_code();
-	update_metrics( latency_us );
+        periodic_application_code();
+        update_metrics( latency_us );
     }
     metrics.stop = now;
 
@@ -238,26 +243,26 @@ int main( void )
 //  init_kernel_tricks();
 
     struct sched_param parm;
-	pthread_attr_t attr;
-	
-	pthread_attr_init( &attr );
-	pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
-	pthread_attr_setschedpolicy( &attr, RT_POLICY );
-	parm.sched_priority = RT_PRIORITY;
-	pthread_attr_setschedparam( &attr, &parm );
+    pthread_attr_t attr;
+    
+    pthread_attr_init( &attr );
+    pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
+    pthread_attr_setschedpolicy( &attr, RT_POLICY );
+    parm.sched_priority = RT_PRIORITY;
+    pthread_attr_setschedparam( &attr, &parm );
 
     pthread_t  threadId;
     int        err;
 
     err = pthread_create( &threadId, &attr, &threadFunc, &thread_args );
     if ( err ) {
-	printf("ERROR to create thread\n");
-	return -1;
+         printf("ERROR to create thread\n");
+         return -1;
     }
     err = pthread_join( threadId, NULL );
     if ( err ) {
-	printf("ERROR to join thread\n");
-	return -1;
+         printf("ERROR to join thread\n");
+         return -1;
     }
     print_metrics();
 
