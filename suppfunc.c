@@ -46,6 +46,12 @@ void lock_memory( void )
 }
 
 //---------------------------------------------------------------------------
+// Following two example codes are from web sources.
+// Function "timer_end" is suspious!
+//
+// "end_time.tv_nsec"  can be less than  "start_time.tv_nsec"  when
+// "end_time.tv_sec"   is greater than   "start_time.tv_sec"
+
 
 // call this function to start a nanosecond-resolution timer
 struct timespec timer_start(){
@@ -63,15 +69,18 @@ long timer_end(struct timespec start_time){
 }
 
 //---------------------------------------------------------------------------
+// NOTE:
+// - diff()  function "start" must be < "end"
+// - addus() function operates only with small time differencies (< 1 second)
 
 struct timespec  diff( struct timespec start, struct timespec end )
 {
     struct timespec temp;
     if ((end.tv_nsec-start.tv_nsec)<0) {
-        temp.tv_sec = end.tv_sec-start.tv_sec-1;
+        temp.tv_sec  = end.tv_sec-start.tv_sec-1;
         temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
     } else {
-        temp.tv_sec = end.tv_sec-start.tv_sec;
+        temp.tv_sec  = end.tv_sec-start.tv_sec;
         temp.tv_nsec = end.tv_nsec-start.tv_nsec;
     }
     return temp;
