@@ -117,6 +117,7 @@ int main( void )
 
 //  setpriority( PRIO_PROCESS, pid, newPriority );
 
+    check_root();
     lock_memory();
     metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
     if ( !metrics_data ) {
