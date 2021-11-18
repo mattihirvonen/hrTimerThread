@@ -11,7 +11,7 @@
 #include <time.h>           // struct timespec
 #include <sys/mman.h>       // mlockall(), munlockall, mmap(), munmap()
 #include <string.h>         // memset()
-#include <unistd.h>         // getuid()   
+#include <unistd.h>         // getuid()
 
 //#include <sys/types.h>
 //#include <sys/stat.h>
@@ -38,11 +38,11 @@ void check_root( void )
 void lock_memory( void )
 {
 
-	/* lock all memory (prevent swapping) */
-	if (mlockall(MCL_CURRENT|MCL_FUTURE) == -1) {
-		perror("mlockall");
-		exit( -1 );
-	}
+    /* lock all memory (prevent swapping) */
+    if (mlockall(MCL_CURRENT|MCL_FUTURE) == -1) {
+        perror("mlockall");
+        exit( -1 );
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -69,25 +69,37 @@ long timer_end(struct timespec start_time){
 }
 
 //---------------------------------------------------------------------------
-// NOTE:
+// NOTE(s):
 // - diff()  function "start" must be < "end"
-// - addus() function operates only with small time differencies (< 1 second)
+// - some ARM cores do not have hardware division command
 
-struct timespec  diff( struct timespec start, struct timespec end )
+struct timespec  diff_ts( struct timespec start, struct timespec end )
 {
     struct timespec temp;
-    if ((end.tv_nsec-start.tv_nsec)<0) {
-        temp.tv_sec  = end.tv_sec-start.tv_sec-1;
-        temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+
+    if ( (end.tv_nsec - start.tv_nsec) < 0 ) {
+         temp.tv_sec  = end.tv_sec  - start.tv_sec  - 1;
+         temp.tv_nsec = end.tv_nsec - start.tv_nsec + 1000000000;
     } else {
-        temp.tv_sec  = end.tv_sec-start.tv_sec;
-        temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+         temp.tv_sec  = end.tv_sec  - start.tv_sec;
+         temp.tv_nsec = end.tv_nsec - start.tv_nsec;
     }
     return temp;
 }
 
+
 struct timespec addus( struct timespec timestamp, int us )
 {
+    // Optimize speed for forward where "us" > 0
+
+    if ( us < 0 ) {
+         return subus( timestamp, -us );
+    }
+    if ( us >= 1000000 ) {            // Try to avoid division
+         int sec = us / 1000000;
+         timestamp.tv_sec += sec;
+         us = us - (sec * 1000000);   // Multiplication is faster than division
+    }
     timestamp.tv_nsec += 1000 * us;
     if ( timestamp.tv_nsec >= 1000000000 ) {
          timestamp.tv_nsec -= 1000000000;
@@ -96,11 +108,37 @@ struct timespec addus( struct timespec timestamp, int us )
     return timestamp;
 }
 
+
+struct timespec subus( struct timespec timestamp, int us )
+{
+    if ( us < 0 ) {
+         return addus( timestamp, -us );
+    }
+    if ( us >= 1000000 ) {             // Try to avoid division
+         int sec = us / 1000000;
+         timestamp.tv_sec  -= sec;
+         us = us - (sec * 1000000);    // Multiplication is faster than division
+    }
+    timestamp.tv_nsec -= 1000 * us;
+    if ( timestamp.tv_nsec  < 0 ) {
+         timestamp.tv_nsec += 1000000000;
+         timestamp.tv_sec--;
+    }
+    return timestamp;
+}
+
+
 int diffus( struct timespec start, struct timespec end )
 {
-    struct timespec diff_tv = diff( start, end );
+    struct timespec diff = diff_ts( start, end );
 
-    return (1000000 * diff_tv.tv_sec) + (diff_tv.tv_nsec / 1000);
+    #if 0
+    // Optimize speed with cost of small error (error is 2.4 %)
+    #warning "Function diffus() optimize speed with small error"
+    return (1000000 * diff.tv_sec) + (diff.tv_nsec >> 10);
+    #else
+    return (1000000 * diff.tv_sec) + (diff.tv_nsec / 1000);
+    #endif
 }
 
 //---------------------------------------------------------------------------
@@ -111,15 +149,15 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
     static int flagPRINT  = 0;
 
     if ( metrics->reset ) {
-		 memset( metrics, 0, sizeof(metrics_t) );
-		 flagPERIOD = 0;
-		 flagPRINT  = 0;
-		 
-		 // Following makes "turns calculation result bit less... xx.9???
-		 struct timespec  timestamp;
-		 clock_gettime( CLOCK_MONOTONIC, &timestamp );
-		 metrics->start = timestamp;
-	}
+         memset( metrics, 0, sizeof(metrics_t) );
+         flagPERIOD = 0;
+         flagPRINT  = 0;
+
+         // Following is enough accurate
+         struct timespec  timestamp;
+         clock_gettime( CLOCK_MONOTONIC, &timestamp );
+         metrics->start = subus( timestamp, latency_us );
+    }
 
     metrics->counter++;
     metrics->sum_us += latency_us;
@@ -151,7 +189,7 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
     if (  metrics->max_lat < latency_us ) {
           metrics->max_lat = latency_us;
     }
-	metrics->stop = now;
+    metrics->stop = now;
 }
 
 

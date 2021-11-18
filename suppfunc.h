@@ -16,8 +16,8 @@ extern "C" {
 #define HISTOSIZE  2001
 
 typedef struct  {
-	int  reset;     // Write non zero value resets metrics
-	//
+    int  reset;     // Write non zero value resets metrics
+    //
     int  histogram[HISTOSIZE];
     int  long_sum_us;
     int  long_count;
@@ -31,8 +31,9 @@ typedef struct  {
 void check_root( void );
 void lock_memory( void );
 
-struct timespec  diff(  struct timespec start, struct timespec end );
+struct timespec  diff_ts(  struct timespec start, struct timespec end );
 struct timespec  addus( struct timespec timestamp, int us );
+struct timespec  subus( struct timespec timestamp, int us );
 
 int diffus( struct timespec start, struct timespec end );
 
