@@ -20,6 +20,7 @@
 #include <sys/mman.h>            // munmap()
 #include <unistd.h>              // getpid()
 #include <pthread.h>
+#include <string.h>
 #include "suppfunc.h"
 
 #define  SHM_METRICS   "RT_METRICS"      // Shared memory file name
@@ -29,15 +30,26 @@ int  RT_PERIOD = 1000;
 
 int main( int argc, char *argv[] )
 {
-	metrics_t  *metrics_data;
-	
+    metrics_t  *metrics_data;
+    
     check_root();
     metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
     if ( !metrics_data ) {
         printf("ERROR: Can not open shared memory\n");
         exit( -1 );
     }
-    print_metrics( metrics_data );
+
+    if ( argc > 1 ) {
+        if ( !strcmp(argv[1],"-r") ) {
+            metrics_data->reset = 1;
+        }
+        else {
+            printf("Unknown command line arg: %s\n", argv[1]);
+        }
+    }
+    else {
+        print_metrics( metrics_data );
+    }
     munmap( metrics_data, sizeof(metrics_t) );
 
     #if 0 //FALSE
