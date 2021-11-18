@@ -156,7 +156,7 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
          // Following is enough accurate
          struct timespec  timestamp;
          clock_gettime( CLOCK_MONOTONIC, &timestamp );
-         metrics->start = tsSubus( timestamp, latency_us );
+         metrics->start = tsSubus( timestamp, RT_PERIOD+latency_us );
     }
 
     metrics->counter++;
