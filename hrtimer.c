@@ -20,6 +20,7 @@
 #include <sys/mman.h>            // munmap()
 #include <unistd.h>              // getpid()
 #include <pthread.h>
+#include <string.h>
 #include "suppfunc.h"
 
 #define  SHM_METRICS    "RT_METRICS"      // Shared memory file name
@@ -107,37 +108,20 @@ void * threadFunc( void *arg )
         update_metrics( metrics_data, latency_us, now );
 
         if ( runtime ) {
-            if ( --runtime )   continue;
-            else               break;
+            if ( --runtime == 0 ) {
+                shutdown = 1;
+            }
         }
     }
     return NULL;
 }
 
 
-int main( int argc, char *argv[] )
+int run_RT_thread( int seconds )
 {
-    pid_t  pid             = getpid();
-    int    currentPriority = getpriority( PRIO_PROCESS, pid );
-//  int    newPriority     = PRIORITY;
+    runtime = TESTtime( seconds );
 
-//  setpriority( PRIO_PROCESS, pid, newPriority );
-
-    check_root();
-    if ( argc > 1 ) {
-        int sec = atoi( argv[1] );
-        if ( sec ) {
-            runtime = TESTtime( sec );
-        }
-    }
-    metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
-    if ( !metrics_data ) {
-        printf("ERROR: Can not open shared memory\n");
-        exit( -1 );
-    }
     lock_memory();
-
-    // - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     struct sched_param  parm;
     pthread_attr_t      attr;
@@ -161,7 +145,47 @@ int main( int argc, char *argv[] )
          printf("ERROR to join thread\n");
          return -1;
     }
-    print_metrics( metrics_data );
+    return 0;
+}
+
+//---------------------------------------------------------------------------
+
+int main( int argc, char *argv[] )
+{
+    int    status          = 0;
+    pid_t  pid             = getpid();
+    int    currentPriority = getpriority( PRIO_PROCESS, pid );
+//  int    newPriority     = PRIORITY;
+
+//  setpriority( PRIO_PROCESS, pid, newPriority );
+
+    check_root();
+    metrics_data = shmOpen( "", SHM_METRICS, sizeof(metrics_t) );
+    if ( !metrics_data ) {
+        printf("ERROR: Can not open shared memory\n");
+        exit( -1 );
+    }
+
+    if ( argc > 1 ) {
+
+        int seconds = atoi( argv[1] );
+
+        if ( !strcmp(argv[1],"-r") ) {
+            metrics_data->reset = 1;
+        }
+        else if ( !strcmp(argv[1],"-p") ) {
+            print_metrics( metrics_data );
+        }
+        else if ( seconds > 0 ) {
+            status = run_RT_thread( seconds );
+        }
+        else {
+            printf("ERROR Unknown command line argument: %s\n", argv[1]);
+        }
+    }
+    else {
+        status = run_RT_thread( 0 );
+    }
 
     munmap( metrics_data, sizeof(metrics_t) );
 
@@ -171,5 +195,5 @@ int main( int argc, char *argv[] )
 //  shm_unlink(SHM_METRICS);
     #endif
 
-    return 0;
+    return status;
 }
