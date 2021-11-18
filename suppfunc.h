@@ -31,11 +31,10 @@ typedef struct  {
 void check_root( void );
 void lock_memory( void );
 
-struct timespec  diff_ts(  struct timespec start, struct timespec end );
-struct timespec  addus( struct timespec timestamp, int us );
-struct timespec  subus( struct timespec timestamp, int us );
-
-int diffus( struct timespec start, struct timespec end );
+int             tsDiffus( struct timespec start, struct timespec end );
+struct timespec  tsDiff(  struct timespec start, struct timespec end );
+struct timespec  tsAddus( struct timespec timestamp, int us );
+struct timespec  tsSubus( struct timespec timestamp, int us );
 
 void update_metrics( metrics_t *metrics, int latency_us, struct timespec now );
 void print_metrics(  metrics_t *metrics );

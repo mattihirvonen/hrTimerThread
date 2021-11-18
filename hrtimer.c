@@ -94,14 +94,14 @@ void * threadFunc( void *arg )
     next = now;
     while ( !shutdown )
     {
-        next = addus( next, RT_PERIOD );
+        next = tsAddus( next, RT_PERIOD );
 
         // Note this simple example do not handle "remain"
         // if delay end before elapsed time (like signal etc.. case).
         int err = clock_nanosleep( CLOCK_MONOTONIC, flags, &next, &remain );
 
         clock_gettime( CLOCK_MONOTONIC, &now );
-        latency_us = diffus( next, now );
+        latency_us = tsDiffus( next, now );
 
         periodic_application_code();
         update_metrics( metrics_data, latency_us, now );

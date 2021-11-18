@@ -73,7 +73,7 @@ long timer_end(struct timespec start_time){
 // - diff()  function "start" must be < "end"
 // - some ARM cores do not have hardware division command
 
-struct timespec  diff_ts( struct timespec start, struct timespec end )
+struct timespec  tsDiff( struct timespec start, struct timespec end )
 {
     struct timespec temp;
 
@@ -88,12 +88,12 @@ struct timespec  diff_ts( struct timespec start, struct timespec end )
 }
 
 
-struct timespec addus( struct timespec timestamp, int us )
+struct timespec tsAddus( struct timespec timestamp, int us )
 {
     // Optimize speed for forward where "us" > 0
 
     if ( us < 0 ) {
-         return subus( timestamp, -us );
+         return tsSubus( timestamp, -us );
     }
     if ( us >= 1000000 ) {            // Try to avoid division
          int sec = us / 1000000;
@@ -109,10 +109,10 @@ struct timespec addus( struct timespec timestamp, int us )
 }
 
 
-struct timespec subus( struct timespec timestamp, int us )
+struct timespec tsSubus( struct timespec timestamp, int us )
 {
     if ( us < 0 ) {
-         return addus( timestamp, -us );
+         return tsAddus( timestamp, -us );
     }
     if ( us >= 1000000 ) {             // Try to avoid division
          int sec = us / 1000000;
@@ -128,9 +128,9 @@ struct timespec subus( struct timespec timestamp, int us )
 }
 
 
-int diffus( struct timespec start, struct timespec end )
+int tsDiffus( struct timespec start, struct timespec end )
 {
-    struct timespec diff = diff_ts( start, end );
+    struct timespec diff = tsDiff( start, end );
 
     #if 0
     // Optimize speed with cost of small error (error is 2.4 %)
@@ -156,7 +156,7 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
          // Following is enough accurate
          struct timespec  timestamp;
          clock_gettime( CLOCK_MONOTONIC, &timestamp );
-         metrics->start = subus( timestamp, latency_us );
+         metrics->start = tsSubus( timestamp, latency_us );
     }
 
     metrics->counter++;
@@ -195,7 +195,7 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
 
 void print_metrics( metrics_t *metrics )
 {
-    int us       = diffus( metrics->start, metrics->stop );
+    int us       = tsDiffus( metrics->start, metrics->stop );
     float turns  = us;
           turns /= RT_PERIOD;
 
