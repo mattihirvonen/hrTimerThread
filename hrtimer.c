@@ -120,6 +120,7 @@ void * threadFunc( void *arg )
 int run_RT_thread( int seconds )
 {
     runtime = TESTtime( seconds );
+	metrics_data->reset = 1;
 
     lock_memory();
 
