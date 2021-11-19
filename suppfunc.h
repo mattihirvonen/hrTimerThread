@@ -19,8 +19,8 @@ typedef struct  {
     int  reset;     // Write non zero value resets metrics
     //
     int  histogram[HISTOSIZE];
-    int  long_sum_us;
-    int  long_count;
+    int  late_sum_us;
+    int  late_count;
     int  max_lat;
     int  sum_us;
     int  counter;
@@ -31,10 +31,11 @@ typedef struct  {
 void check_root( void );
 void lock_memory( void );
 
-int             tsDiffus( struct timespec start, struct timespec end );
+int64_t         tsDiffus( struct timespec start, struct timespec end );
 struct timespec  tsDiff(  struct timespec start, struct timespec end );
 struct timespec  tsAddus( struct timespec timestamp, int us );
 struct timespec  tsSubus( struct timespec timestamp, int us );
+int64_t            ts2us( struct timespec timestamp );
 
 void update_metrics( metrics_t *metrics, int latency_us, struct timespec now );
 void print_metrics(  metrics_t *metrics );

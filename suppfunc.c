@@ -70,7 +70,7 @@ long timer_end(struct timespec start_time){
 
 //---------------------------------------------------------------------------
 // NOTE(s):
-// - diff()  function "start" must be < "end"
+// - tsDiff() function: "start" must be < "end"
 // - some ARM cores do not have hardware division command
 
 struct timespec  tsDiff( struct timespec start, struct timespec end )
@@ -128,17 +128,39 @@ struct timespec tsSubus( struct timespec timestamp, int us )
 }
 
 
-int tsDiffus( struct timespec start, struct timespec end )
+int64_t ts2us( struct timespec timestamp )
 {
-    struct timespec diff = tsDiff( start, end );
+    int64_t us;
 
+    us   = timestamp.tv_sec;
+    us  *= 1000000;
+    us  += timestamp.tv_nsec / 1000;
+    return us;
+}
+
+
+int64_t tsDiffus( struct timespec start, struct timespec end )
+{
+#if 0
+    int64_t  usStart = ts2us( start );
+    int64_t  usEnd   = ts2us( end   );
+
+    return ( usEnd - usStart );
+#else
+    struct  timespec diff = tsDiff( start, end );
+    int64_t          temp;
+
+    temp  = diff.tv_sec;
+    temp *= 1000000;
     #if 0
     // Optimize speed with cost of small error (error is 2.4 %)
     #warning "Function diffus() optimize speed with small error"
-    return (1000000 * diff.tv_sec) + (diff.tv_nsec >> 10);
+    temp += diff.tv_nsec >> 10;
     #else
-    return (1000000 * diff.tv_sec) + (diff.tv_nsec / 1000);
+    temp += diff.tv_nsec / 1000;
     #endif
+    return  temp;
+#endif
 }
 
 //---------------------------------------------------------------------------
@@ -173,8 +195,8 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
     }
     if ( latency_us >= RT_PERIOD && !flagPERIOD ) {
          flagPERIOD = 1;
-         metrics->long_count++;
-         metrics->long_sum_us += latency_us - RT_PERIOD;
+         metrics->late_count++;
+         metrics->late_sum_us += latency_us - RT_PERIOD;
     }
     if ( latency_us < TRESHOLD ) {
          flagPRINT  = 0;
@@ -195,9 +217,8 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
 
 void print_metrics( metrics_t *metrics )
 {
-    int us       = tsDiffus( metrics->start, metrics->stop );
-    float turns  = us;
-          turns /= RT_PERIOD;
+    double  turns  = tsDiffus( metrics->start, metrics->stop );
+            turns /= RT_PERIOD;
 
     printf("# Histogram: [us] [count]\n");
     for ( int ix = 0; ix < HISTOSIZE; ix++ ) {
@@ -206,10 +227,21 @@ void print_metrics( metrics_t *metrics )
     printf("#\n");
     printf("# max  latency = %d\n", metrics->max_lat );
     printf("# awg  latency = %d\n", metrics->sum_us / metrics->counter );
-    printf("# long count   = %d\n", metrics->long_count );
-    printf("# long [ms]    = %d.%03d\n", metrics->long_sum_us / 1000, metrics->long_sum_us % 1000 );
+    printf("# late count   = %d\n", metrics->late_count );
+    printf("# late [ms]    = %d.%03d\n", metrics->late_sum_us / 1000, metrics->late_sum_us % 1000 );
     //
     printf("# turns        = %f\n", turns );
+    //
+    struct  timespec past, now;
+    clock_gettime( CLOCK_MONOTONIC, &now );
+    past = now;
+    past = tsSubus( past, 100000100 );
+//    past = tsSubus( past,  99999900 );
+//    past = tsSubus( past,    999900 );
+    now  = tsAddus( now,        100 );
+
+    printf("# pos:           %-12lld\n", tsDiffus(past, now)  );
+    printf("# neg:          %-12lld\n",  tsDiffus(now,  past) );
 }
 
 //---------------------------------------------------------------------------
