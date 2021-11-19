@@ -141,7 +141,7 @@ int64_t ts2us( struct timespec timestamp )
 
 int64_t tsDiffus( struct timespec start, struct timespec end )
 {
-#if 0
+#if 1
     int64_t  usStart = ts2us( start );
     int64_t  usEnd   = ts2us( end   );
 

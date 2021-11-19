@@ -27,7 +27,7 @@
 
 #define  TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
-metrics_t  *metrics_data;
+metrics_t  *metrics_data;         // ToDo: Make own instance for each RT thread
 
 int RT_PRIORITY   = 90;
 int RT_PERIOD     = 1000;         // Unit:   [us]
@@ -59,11 +59,11 @@ int RT_POLICY     = SCHED_FIFO;   // Policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
 typedef struct
 {
-    int dummy_sample;
+    int  thread_number;
 } thread_args_t;
 
 
-thread_args_t  thread_args;
+thread_args_t  thread_args;  // ToDo: Make own instance for each RT thread
 int            shutdown;     // Write here non zero value to terminate RT thread
 uint32_t       runtime;
 
@@ -78,10 +78,9 @@ void * threadFunc( void *arg )
 {
     #define  OFFSET_ns   0  //  100000
 
-    struct sched_param   param;
+    thread_args_t *ta = arg;
 
-//  param.sched_priority = RT_PRIORITY;
-//  pthread_setschedparam( pthread_self(), RT_POLICY, &param );
+    struct sched_param   param;
 
     struct timespec  now, next, remain;
     int              latency_us;
@@ -117,31 +116,47 @@ void * threadFunc( void *arg )
 }
 
 
-int run_RT_thread( int seconds )
+int start_RT_thread( int rt_policy, int rt_priority, void *thread_func, void *arg )
 {
-    runtime = TESTtime( seconds );
-	metrics_data->reset = 1;
-
-    lock_memory();
-
     struct sched_param  parm;
     pthread_attr_t      attr;
 
     pthread_attr_init( &attr );
     pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
-    pthread_attr_setschedpolicy(  &attr, RT_POLICY );
-    parm.sched_priority = RT_PRIORITY;
+    pthread_attr_setschedpolicy(  &attr, rt_policy );
+    parm.sched_priority = rt_priority;
     pthread_attr_setschedparam( &attr, &parm );
 
     pthread_t  threadId;
     int        err;
 
-    err = pthread_create( &threadId, &attr, &threadFunc, &thread_args );
+    err = pthread_create( &threadId, &attr, thread_func, arg );
     if ( err ) {
          printf("ERROR to create thread\n");
          return -1;
     }
-    err = pthread_join( threadId, NULL );
+    return threadId;
+}
+
+
+int run_RT_threads( int seconds )
+{
+    runtime = TESTtime( seconds );
+    metrics_data->reset = 1;
+
+    lock_memory();
+
+    pthread_t  threadId[10];
+    int        err = 0;
+
+    threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc, &thread_args );  thread_args.thread_number++;
+//  threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadFunc, &thread_args );  thread_args.thread_number++;
+//  threadId[2] = start_RT_thread( RT_POLICY, RT_PRIORITY-2, &threadFunc, &thread_args );  thread_args.thread_number++;
+
+    err |= pthread_join( threadId[0], NULL );
+//  err |= pthread_join( threadId[1], NULL );
+//  err |= pthread_join( threadId[2], NULL );
+
     if ( err ) {
          printf("ERROR to join thread\n");
          return -1;
@@ -154,8 +169,8 @@ int run_RT_thread( int seconds )
 int main( int argc, char *argv[] )
 {
     int    status          = 0;
-    pid_t  pid             = getpid();
-    int    currentPriority = getpriority( PRIO_PROCESS, pid );
+//  pid_t  pid             = getpid();
+//  int    currentPriority = getpriority( PRIO_PROCESS, pid );
 //  int    newPriority     = PRIORITY;
 
 //  setpriority( PRIO_PROCESS, pid, newPriority );
@@ -178,14 +193,14 @@ int main( int argc, char *argv[] )
             print_metrics( metrics_data );
         }
         else if ( seconds > 0 ) {
-            status = run_RT_thread( seconds );
+            status = run_RT_threads( seconds );
         }
         else {
             printf("ERROR Unknown command line argument: %s\n", argv[1]);
         }
     }
     else {
-        status = run_RT_thread( 0 );
+        status = run_RT_threads( 0 );
     }
 
     munmap( metrics_data, sizeof(metrics_t) );
