@@ -24,6 +24,7 @@
 #include "suppfunc.h"
 
 #define  SHM_METRICS    "RT_METRICS"      // Shared memory file name
+#define  UART_METRICS   0
 
 #define  TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
@@ -63,14 +64,19 @@ typedef struct
 } thread_args_t;
 
 
-thread_args_t  thread_args;  // ToDo: Make own instance for each RT thread
-int            shutdown;     // Write here non zero value to terminate RT thread
-uint32_t       runtime;
+thread_args_t    thread_args;  // ToDo: Make own instance for each RT thread
+int              shutdown;     // Write here non zero value to terminate RT thread
+uint32_t         runtime;
+struct timespec  last;
+int              fd;           // UART
+char             buf[100];
 
 
 void periodic_application_code( void )
 {
-    // ToDo:....
+    *buf = 0x0f;   // LS bit first out
+
+    write( fd, buf, 1 );
 }
 
 
@@ -102,17 +108,64 @@ void * threadFunc( void *arg )
 
         clock_gettime( CLOCK_MONOTONIC, &now );
         latency_us = tsDiffus( next, now );
+        last = next;
 
         periodic_application_code();
+        #if UART_METRICS == 0
         update_metrics( metrics_data, latency_us, now );
+        #endif
 
         if ( runtime ) {
             if ( --runtime == 0 ) {
                 shutdown = 1;
+                periodic_application_code();   // Send one character to unblock receiver
             }
         }
     }
     return NULL;
+}
+
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <termios.h>
+#include <unistd.h>
+
+void * threadUartRx( char *tty_dev )
+{
+    #define TTY_DEV  "/dev/ttyUSB0"
+//  #define TTY_DEV  "/dev/ttyS5"
+
+    fd = open( TTY_DEV, O_RDWR | O_NOCTTY | O_SYNC );
+//  fd = open( TTY_DEV, O_RDWR | O_NOCTTY | O_NDELAY );
+
+    #if 0
+    if ( set_interface_attribs(fd, B115200, 0) )
+//  if ( InitCOM(fd, B115200, 0) )
+    {
+        exit -1;
+    }
+    set_blocking (fd, 1);
+    #endif
+
+    char buffer[1000];
+
+    read( fd, buffer, sizeof(buffer) );   // flush buffer
+
+    while ( !shutdown )
+    {
+        struct timespec  now;
+        int              latency_us;
+
+        read( fd, buffer, 1 );
+
+        clock_gettime( CLOCK_MONOTONIC, &now );
+        latency_us = tsDiffus( last, now );
+
+        #if UART_METRICS
+        update_metrics( metrics_data, latency_us, now );
+        #endif
+    }
 }
 
 
@@ -149,12 +202,14 @@ int run_RT_threads( int seconds )
     pthread_t  threadId[10];
     int        err = 0;
 
-    threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc, &thread_args );  thread_args.thread_number++;
-//  threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadFunc, &thread_args );  thread_args.thread_number++;
-//  threadId[2] = start_RT_thread( RT_POLICY, RT_PRIORITY-2, &threadFunc, &thread_args );  thread_args.thread_number++;
+    threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc,  &thread_args );  thread_args.thread_number++;
+    threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadUartRx, NULL );
+
+//  threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadFunc,  &thread_args );  thread_args.thread_number++;
+//  threadId[2] = start_RT_thread( RT_POLICY, RT_PRIORITY-2, &threadFunc,  &thread_args );  thread_args.thread_number++;
 
     err |= pthread_join( threadId[0], NULL );
-//  err |= pthread_join( threadId[1], NULL );
+    err |= pthread_join( threadId[1], NULL );
 //  err |= pthread_join( threadId[2], NULL );
 
     if ( err ) {
