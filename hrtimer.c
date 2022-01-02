@@ -24,11 +24,11 @@
 #include "suppfunc.h"
 
 #define  SHM_METRICS    "RT_METRICS"      // Shared memory file name
-#define  UART_METRICS   0
 
 #define  TESTtime(sec)  (((sec) * 1000000) / RT_PERIOD)
 
 metrics_t  *metrics_data;         // ToDo: Make own instance for each RT thread
+int        UART_METRICS  =  0;    // Measure metrics using serial port loop back
 
 int RT_PRIORITY   = 90;
 int RT_PERIOD     = 1000;         // Unit:   [us]
@@ -111,9 +111,9 @@ void * threadFunc( void *arg )
         last = next;
 
         periodic_application_code();
-        #if UART_METRICS == 0
-        update_metrics( metrics_data, latency_us, now );
-        #endif
+        if ( !UART_METRICS ) {
+            update_metrics( metrics_data, latency_us, now );
+        }
 
         if ( runtime ) {
             if ( --runtime == 0 ) {
@@ -124,6 +124,7 @@ void * threadFunc( void *arg )
     }
     return NULL;
 }
+
 
 #include <errno.h>
 #include <fcntl.h>
@@ -162,9 +163,9 @@ void * threadUartRx( char *tty_dev )
         clock_gettime( CLOCK_MONOTONIC, &now );
         latency_us = tsDiffus( last, now );
 
-        #if UART_METRICS
-        update_metrics( metrics_data, latency_us, now );
-        #endif
+        if ( UART_METRICS ) {
+            update_metrics( metrics_data, latency_us, now );
+        }
     }
 }
 
@@ -202,8 +203,9 @@ int run_RT_threads( int seconds )
     pthread_t  threadId[10];
     int        err = 0;
 
-    threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc,  &thread_args );  thread_args.thread_number++;
     threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadUartRx, NULL );
+    usleep( 100000 );   // Give time to flush serial port buffer
+    threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc,  &thread_args );  thread_args.thread_number++;
 
 //  threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadFunc,  &thread_args );  thread_args.thread_number++;
 //  threadId[2] = start_RT_thread( RT_POLICY, RT_PRIORITY-2, &threadFunc,  &thread_args );  thread_args.thread_number++;
@@ -224,6 +226,8 @@ int run_RT_threads( int seconds )
 int main( int argc, char *argv[] )
 {
     int    status          = 0;
+    int    seconds         = 0;    // Default (==0) run for ever....
+
 //  pid_t  pid             = getpid();
 //  int    currentPriority = getpriority( PRIO_PROCESS, pid );
 //  int    newPriority     = PRIORITY;
@@ -239,25 +243,30 @@ int main( int argc, char *argv[] )
 
     if ( argc > 1 ) {
 
-        int seconds = atoi( argv[1] );
+        int  sec = atoi( argv[1] );
 
-        if ( !strcmp(argv[1],"-r") ) {
+        if ( sec > 0 ) {
+            seconds = sec;;
+        }
+        else if ( !strcmp(argv[1],"-s") ) {
+            UART_METRICS = 1;
+        }
+        else if ( !strcmp(argv[1],"-r") ) {
             metrics_data->reset = 1;
+            goto done;
         }
         else if ( !strcmp(argv[1],"-p") ) {
             print_metrics( metrics_data );
-        }
-        else if ( seconds > 0 ) {
-            status = run_RT_threads( seconds );
+            goto done;
         }
         else {
             printf("ERROR Unknown command line argument: %s\n", argv[1]);
+            goto done;
         }
     }
-    else {
-        status = run_RT_threads( 0 );
-    }
+    status = run_RT_threads( seconds );
 
+done:
     munmap( metrics_data, sizeof(metrics_t) );
 
     #if 0 //FALSE
