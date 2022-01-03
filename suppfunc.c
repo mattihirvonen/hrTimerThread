@@ -243,7 +243,8 @@ void print_metrics( metrics_t *metrics )
     printf("# awg  latency = %-20.3f\n", awg_ms );
     printf("# late count   = %d\n",      metrics->late_count );
 //  printf("# late [ms]    = %d.%03d\n", metrics->late_sum_us / 1000, metrics->late_sum_us % 1000 );
-    printf("# late [ms]    = %-20.3f\n", late_sum_ms );
+    printf("# late sum     = %-20.3f\n", late_sum_ms );
+	printf("# over hist.   = %d\n",      metrics->histogram[0] );
     //
 //  printf("# turns        = %-20.3f\n", turns );
     //

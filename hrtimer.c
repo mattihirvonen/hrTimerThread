@@ -31,7 +31,7 @@ metrics_t  *metrics_data;         // ToDo: Make own instance for each RT thread
 int        UART_METRICS  =  0;    // Measure metrics using serial port loop back
 
 int RT_PRIORITY   = 90;
-int RT_PERIOD     = 5000;         // Unit:   [us]
+int RT_PERIOD     = 2000;         // Unit:   [us]
 int RT_POLICY     = SCHED_FIFO;   // Policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
 //---------------------------------------------------------------------------
@@ -195,6 +195,10 @@ int start_RT_thread( int rt_policy, int rt_priority, void *thread_func, void *ar
 
 int run_RT_threads( int seconds )
 {
+	printf("RT PERIOD (us): %d\n", RT_PERIOD);
+	printf("Run time (sec): %d\n", seconds);
+	printf("Print latency > RT_PERIOD...\n");
+	
     runtime = TESTtime( seconds );
     metrics_data->reset = 1;
 
