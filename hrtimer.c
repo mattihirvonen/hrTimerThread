@@ -76,7 +76,9 @@ void periodic_application_code( void )
 {
     *buf = 0xfe;   // LS bit first out
 
-    write( fd, buf, 1 );
+    if ( UART_METRICS ) {
+        write( fd, buf, 1 );
+    }
 }
 
 
@@ -116,12 +118,12 @@ void * threadFunc( void *arg )
         }
 
         if ( runtime ) {
-            if ( --runtime == 0 ) {
+            if ( metrics_data->counter >= runtime ) {
                 shutdown = 1;
-                periodic_application_code();   // Send one character to unblock receiver
             }
         }
     }
+    printf("Thread   (end): RT\n");
     return NULL;
 }
 
@@ -140,7 +142,7 @@ void * threadUartRx( char *tty_dev )
     fd = open( TTY_DEV, O_RDWR | O_NOCTTY | O_SYNC );
 //  fd = open( TTY_DEV, O_RDWR | O_NOCTTY | O_NDELAY );
 
-    #if 0
+    #if 1
     if ( set_interface_attribs(fd, B115200, 0) )
 //  if ( InitCOM(fd, B115200, 0) )
     {
@@ -167,6 +169,8 @@ void * threadUartRx( char *tty_dev )
             update_metrics( metrics_data, latency_us, now );
         }
     }
+    printf("Thread   (end): UART\n");
+    return NULL;
 }
 
 
@@ -195,10 +199,12 @@ int start_RT_thread( int rt_policy, int rt_priority, void *thread_func, void *ar
 
 int run_RT_threads( int seconds )
 {
-	printf("RT PERIOD (us): %d\n", RT_PERIOD);
-	printf("Run time (sec): %d\n", seconds);
-//  printf("Print latency > RT_PERIOD...\n");
-	
+    char secs[16];
+
+    sprintf(secs, "%d", seconds);
+    printf("RT PERIOD (us): %d\n", RT_PERIOD);
+    printf("Run time (sec): %s\n", seconds ? secs : "...");
+
     runtime = TESTtime( seconds );
     metrics_data->reset = 1;
 
@@ -207,21 +213,31 @@ int run_RT_threads( int seconds )
     pthread_t  threadId[10];
     int        err = 0;
 
-    threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadUartRx, NULL );
-    usleep( 100000 );   // Give time to flush serial port buffer
+    if ( UART_METRICS ) {
+        threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadUartRx, NULL );
+        usleep( 100000 );   // Give time to flush serial port buffer
+    }
     threadId[0] = start_RT_thread( RT_POLICY, RT_PRIORITY-0, &threadFunc,  &thread_args );  thread_args.thread_number++;
 
+    pthread_join( threadId[0], NULL );
+    if ( UART_METRICS ) {
+        pthread_cancel( threadId[0] );
+    }
+
+#if 0
 //  threadId[1] = start_RT_thread( RT_POLICY, RT_PRIORITY-1, &threadFunc,  &thread_args );  thread_args.thread_number++;
 //  threadId[2] = start_RT_thread( RT_POLICY, RT_PRIORITY-2, &threadFunc,  &thread_args );  thread_args.thread_number++;
 
-    err |= pthread_join( threadId[0], NULL );
-    err |= pthread_join( threadId[1], NULL );
-//  err |= pthread_join( threadId[2], NULL );
+    for ( int i = 0; i < 10; i++ ) {
+        err |= pthread_join( threadId[i], NULL );
+    }
 
     if ( err ) {
          printf("ERROR to join thread\n");
          return -1;
     }
+#endif
+
     return 0;
 }
 

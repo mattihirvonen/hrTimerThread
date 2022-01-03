@@ -1,10 +1,10 @@
+APP=  hrtimer
+SRC=  suppfunc.c  setTermIo.c
+HDR=  suppfunc.h
 
-SRC= suppfunc.c
-HDR= suppfunc.h
-
-all:  hrtimer
+all:  $(APP)
 
 
-hrtimer:  $(HDR) $(SRC)  hrtimer.c  Makefile
-	gcc -O2  $(SRC)  hrtimer.c  -o hrtimer  -lrt  -lpthread
+hrtimer: $(HDR)  $(APP).c  $(SRC)  Makefile
+	gcc -O2  $(APP).c  $(SRC)  -o $(APP)  -lrt  -lpthread
 	

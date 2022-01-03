@@ -42,6 +42,9 @@ void print_metrics(  metrics_t *metrics );
 
 void *shmOpen( char *txt, char *shmName, size_t shmSize );
 
+char *InitCOM( int hSerial, int speed, int parity );
+int   set_interface_attribs (int fd, int speed, int parity);
+int   set_blocking (int fd, int should_block);
 
 #ifdef __cplusplus
 }

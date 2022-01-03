@@ -216,18 +216,17 @@ void update_metrics( metrics_t *metrics, int latency_us, struct timespec now )
 
 void print_metrics( metrics_t *metrics )
 {
-    double  turns  = tsDiffus( metrics->start, metrics->stop );
-            turns /= RT_PERIOD;
-            turns /= 1000.0;
+    double  runtime  = tsDiffus( metrics->start, metrics->stop );
+    double  rounds   = runtime / RT_PERIOD;
 
-    double  max_lat_ms   = metrics->max_lat;
-            max_lat_ms  /= 1000.0;
+    double  awg_ms   = metrics->sum_us;
+            awg_ms  /= metrics->counter;
+            awg_ms  /= 1000.0;
 
-    double  awg_ms       = metrics->sum_us;
-            awg_ms      /= metrics->counter;
-            awg_ms      /= 1000.0;
+    double  max_lat_ms  = metrics->max_lat;
+            max_lat_ms /= 1000.0;
 
-    // Cumulative sum over RT_PERIOD
+    // Cumulative sum of overflow RT_PERIOD
     double  late_sum_ms  = metrics->late_sum_us;
             late_sum_ms /= 1000.0;
 
@@ -238,15 +237,18 @@ void print_metrics( metrics_t *metrics )
         }
     }
     printf("#\n");
-//  printf("# max  latency = %d\n",      metrics->max_lat );
-    printf("# max  latency = %-20.3f\n", max_lat_ms );
-    printf("# awg  latency = %-20.3f\n", awg_ms );
-    printf("# late count   = %d\n",      metrics->late_count );
-//  printf("# late [ms]    = %d.%03d\n", metrics->late_sum_us / 1000, metrics->late_sum_us % 1000 );
-    printf("# late sum     = %-20.3f\n", late_sum_ms );
-    printf("# over hist.   = %d\n",      metrics->histogram[0] );
-    //
-//  printf("# turns        = %-20.3f\n", turns );
+    printf("# run  time [s] = %-20.3f\n", runtime / 1000000.0 );
+    printf("# rt   counter  = %d\n",      metrics->counter );
+    printf("# rt   period   = %-20.3f\n", (float)RT_PERIOD / 1000.0 );
+//  printf("# max  latency  = %d\n",      metrics->max_lat );
+    printf("# max  latency  = %-20.3f\n", max_lat_ms );
+    printf("# awg  latency  = %-20.3f\n", awg_ms );
+    printf("# late count    = %d\n",      metrics->late_count );
+//  printf("# late [ms]     = %d.%03d\n", metrics->late_sum_us / 1000, metrics->late_sum_us % 1000 );
+    printf("# late sum      = %-20.3f\n", late_sum_ms );
+    printf("# hist.overflow = %d\n",      metrics->histogram[0] );
+    printf("#\n");
+//  printf("# rounds        = %-20.3f\n", rounds );
     //
     #if 0
     struct  timespec past, now;
@@ -285,3 +287,4 @@ void *shmOpen( char *txt, char *shmName, size_t shmSize )
     return pMem;
 }
 
+//================================================================================================
