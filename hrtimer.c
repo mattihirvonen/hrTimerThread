@@ -197,7 +197,7 @@ int run_RT_threads( int seconds )
 {
 	printf("RT PERIOD (us): %d\n", RT_PERIOD);
 	printf("Run time (sec): %d\n", seconds);
-	printf("Print latency > RT_PERIOD...\n");
+//  printf("Print latency > RT_PERIOD...\n");
 	
     runtime = TESTtime( seconds );
     metrics_data->reset = 1;
