@@ -16,14 +16,14 @@ extern "C" {
 #define HISTOSIZE  5001
 
 typedef struct  {
-    int  reset;     // Write non zero value resets metrics
+    int      reset;     // Write non zero value resets metrics
     //
-    int  histogram[HISTOSIZE];
-    int  late_sum_us;
-    int  late_count;
-    int  max_lat;
-    int  sum_us;
-    int  counter;
+    int      histogram[HISTOSIZE];
+    int      late_sum_us;
+    int      late_count;
+    int      max_lat;
+    int64_t  sum_us;
+    int      counter;
     //
     struct timespec start, stop;
 } metrics_t;
