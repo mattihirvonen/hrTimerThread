@@ -222,7 +222,9 @@ void print_metrics( metrics_t *metrics )
 
     printf("# Histogram: [us] [count]\n");
     for ( int ix = 0; ix < HISTOSIZE; ix++ ) {
-        printf("%06d %06d\n", ix, metrics->histogram[ix] );
+        if ( metrics->histogram[ix] ) {
+            printf("%06d %06d\n", ix, metrics->histogram[ix] );
+        }
     }
     printf("#\n");
     printf("# max  latency = %d\n", metrics->max_lat );
@@ -232,6 +234,7 @@ void print_metrics( metrics_t *metrics )
     //
     printf("# turns        = %f\n", turns );
     //
+    #if 0
     struct  timespec past, now;
     clock_gettime( CLOCK_MONOTONIC, &now );
     past = now;
@@ -242,6 +245,7 @@ void print_metrics( metrics_t *metrics )
 
     printf("# pos:           %-12lld\n", tsDiffus(past, now)  );
     printf("# neg:          %-12lld\n",  tsDiffus(now,  past) );
+    #endif
 }
 
 //---------------------------------------------------------------------------

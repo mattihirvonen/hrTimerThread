@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 
-#define HISTOSIZE  2001
+#define HISTOSIZE  5001
 
 typedef struct  {
     int  reset;     // Write non zero value resets metrics

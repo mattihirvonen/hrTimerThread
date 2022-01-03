@@ -31,7 +31,7 @@ metrics_t  *metrics_data;         // ToDo: Make own instance for each RT thread
 int        UART_METRICS  =  0;    // Measure metrics using serial port loop back
 
 int RT_PRIORITY   = 90;
-int RT_PERIOD     = 2000;         // Unit:   [us]
+int RT_PERIOD     = 3000;         // Unit:   [us]
 int RT_POLICY     = SCHED_FIFO;   // Policy: SCHED_FIFO, SCHED_RR, SCHED_OTHER
 
 //---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ char             buf[100];
 
 void periodic_application_code( void )
 {
-    *buf = 0x0f;   // LS bit first out
+    *buf = 0xfe;   // LS bit first out
 
     write( fd, buf, 1 );
 }
